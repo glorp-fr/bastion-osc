@@ -1,0 +1,156 @@
+---
+- name: Installation des outils DevOps
+  hosts: all
+  become: yes
+  vars:
+    terraform_version: "1.7.1"
+    packer_version: "1.10.1"
+    tofu_version: "1.6.0"
+    tools_dir: "/usr/local/bin"
+    
+  tasks:
+  # Installation des package
+  - name: Installation des pacakges apt
+      apt:
+        name:
+          - curl
+          - unzip
+          - ca-certificates
+          - cockpit
+          - 7zip
+        state: present
+        update_cache: yes
+
+
+    # Installation de Terraform
+    - name: Téléchargement de Terraform
+      get_url:
+        url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+        dest: "/tmp/terraform.zip"
+        mode: '0644'
+        
+    - name: Installation de unzip (si nécessaire)
+      apt:
+        name: unzip
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Extraction de Terraform
+      unarchive:
+        src: "/tmp/terraform.zip"
+        dest: "{{ tools_dir }}"
+        remote_src: yes
+        mode: '0755'
+        
+    - name: Nettoyage du fichier Terraform
+      file:
+        path: "/tmp/terraform.zip"
+        state: absent
+
+    # Installation de Packer
+    - name: Téléchargement de Packer
+      get_url:
+        url: "https://releases.hashicorp.com/packer/{{ packer_version }}/packer_{{ packer_version }}_linux_amd64.zip"
+        dest: "/tmp/packer.zip"
+        mode: '0644'
+        
+    - name: Extraction de Packer
+      unarchive:
+        src: "/tmp/packer.zip"
+        dest: "{{ tools_dir }}"
+        remote_src: yes
+        mode: '0755'
+        
+    - name: Nettoyage du fichier Packer
+      file:
+        path: "/tmp/packer.zip"
+        state: absent
+
+    # Installation de OpenTofu
+    - name: Téléchargement de OpenTofu
+      get_url:
+        url: "https://github.com/opentofu/opentofu/releases/download/v{{ tofu_version }}/tofu_{{ tofu_version }}_linux_amd64.zip"
+        dest: "/tmp/tofu.zip"
+        mode: '0644'
+        
+    - name: Extraction de OpenTofu
+      unarchive:
+        src: "/tmp/tofu.zip"
+        dest: "{{ tools_dir }}"
+        remote_src: yes
+        mode: '0755'
+        
+    - name: Nettoyage du fichier OpenTofu
+      file:
+        path: "/tmp/tofu.zip"
+        state: absent
+
+    # Installation de osc-cli (Outscale CLI)
+    - name: Installation de Python3 et pip
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Installation de Python3 et pip sur RedHat/CentOS
+      yum:
+        name:
+          - python3
+          - python3-pip
+        state: present
+      when: ansible_os_family == "RedHat"
+      
+    - name: Installation de osc-cli via pip
+      pip:
+        name: osc-sdk
+        executable: pip3
+        state: present
+    - name: Copy admin creation file
+      ansible.builtin.copy:
+        src: ./config.json
+        dest: /home/outscale/.osc/config.json
+        owner: outscale
+        group: outscale
+        mode: '0744' 
+      become: true
+    
+    
+    # Vérification des installations
+    - name: Vérification de l'installation de 7zip
+      command: 7z --help
+      register: sevenz_version
+      changed_when: false
+      failed_when: false
+      
+    - name: Vérification de l'installation de Terraform
+      command: terraform version
+      register: terraform_check
+      changed_when: false
+      
+    - name: Vérification de l'installation de Packer
+      command: packer version
+      register: packer_check
+      changed_when: false
+      
+    - name: Vérification de l'installation de OpenTofu
+      command: tofu version
+      register: tofu_check
+      changed_when: false
+      
+    - name: Vérification de l'installation de osc-cli
+      command: osc-cli --version
+      register: osc_check
+      changed_when: false
+      failed_when: false
+      
+    # Affichage des versions installées
+    - name: Affichage des versions
+      debug:
+        msg:
+          - "7zip: {{ 'Installé' if sevenz_version.rc == 0 else 'Échec' }}"
+          - "Terraform: {{ terraform_check.stdout_lines[0] | default('N/A') }}"
+          - "Packer: {{ packer_check.stdout | default('N/A') }}"
+          - "OpenTofu: {{ tofu_check.stdout_lines[0] | default('N/A') }}"
+          - "osc-cli: {{ 'Installé' if osc_check.rc == 0 else 'Échec' }}"

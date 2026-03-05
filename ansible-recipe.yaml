@@ -144,6 +144,11 @@
       register: osc_check
       changed_when: false
       failed_when: false
+
+#installation de kdash
+#https://github.com/kdash-rs/kdash/releases/download/v0.6.0/kdash-linux.tar.gz
+#tar xvf et copie dans /usr/bin
+
       
     # Affichage des versions installées
     - name: Affichage des versions
